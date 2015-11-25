@@ -1,10 +1,10 @@
-//---------------------------------------------------------------------
-// Copyright (c) Ecava Sdn Bhd. All rights reserved.  
-//---------------------------------------------------------------------
-
-// TODO:
-// 3. feature: support _variaint_t array and object
-
+/*
+ * IntegraXor Web SCADA - JsonValue
+ * http://www.integraxor.com/
+ * author: KHW
+ * (c)2010~2011 ecava
+ * Dual licensed under the MIT or GPL Version 2 licenses.
+ */
 #pragma once
 
 #include <string>
@@ -16,7 +16,7 @@
 class JSONVALUE;
 
 typedef std::wstring wstring, *pwstring;
-typedef std::string string, *pstring;
+typedef std::string  *pstring;
 
 // json object is a collection of name-value pair
 typedef std::map<wstring, JSONVALUE> JSONOBJECT, *LPJSONOBJECT;
@@ -121,7 +121,7 @@ typedef struct JSONFORMAT {
 	JSONFORMAT() {
 		nIndentLevel = 0;
 		nIndentSpace = 2;
-		nDecimalPoint = 6;
+		nDecimalPoint = 2;
 		szNumberFormat = L"%.*f";
 		nDateFormat = JSON_DATEFORMAT_DATE | JSON_DATEFORMAT_TIME;
 	};
@@ -196,7 +196,7 @@ public:
 	JSONVALUE(const JSONTYPE nType);
 	JSONVALUE(const JSONVALUE& src);
 	JSONVALUE(const wstring& src);
-	JSONVALUE(const string& src);
+	JSONVALUE(const std::string& src);
 	JSONVALUE(const wchar_t* src);
 	JSONVALUE(const char* src);
 	JSONVALUE(const DECIMAL& src);
@@ -228,7 +228,7 @@ public:
 #pragma region assignment
 	JSONVALUE& operator =(const JSONVALUE& src);
 	JSONVALUE& operator =(const wstring& src);
-	JSONVALUE& operator =(const string& src);
+	JSONVALUE& operator =(const std::string& src);
 	JSONVALUE& operator =(const wchar_t* src);
 	JSONVALUE& operator =(const char* src);
 	JSONVALUE& operator =(const DECIMAL& src);
@@ -252,7 +252,7 @@ public:
 	// object assignment
 	JSONVALUE& operator [](const wstring& src);
 	JSONVALUE& operator [](const wchar_t* src);
-	JSONVALUE& operator [](const string& src);
+	JSONVALUE& operator [](const std::string& src);
 	JSONVALUE& operator [](const char* src);
 
 	// array
@@ -261,7 +261,13 @@ public:
 
 	// general
 	size_t Size();
-	bool IsUndefined();
+	bool isNull();
+	bool isMember(const wchar_t* pos);
+	LPCTSTR asCString();
+	wstring asString();
+	int asInt();
+	double asDouble();
+	bool SetAt(const size_t pos,const JSONVALUE &src);
 	JSONVALUE& At(const size_t pos);
 	JSONVALUE& At(const wchar_t* pos);
 	JSONVALUE& At(const char* pos);
@@ -277,12 +283,9 @@ public:
 	bool Parse(const wstring& sz, const DWORD nFlag = 0, JSONERROR *pError = NULL);
 
 	// conversion, ansi string version
-	const char* ToString(string& sz, const DWORD nFlag = 0, const JSONFORMAT* pFormat = NULL);
-	bool Parse(const string& sz, const DWORD nFlag = 0, JSONERROR *pError = NULL);
+	const char* ToString(std::string& sz, const DWORD nFlag = 0, const JSONFORMAT* pFormat = NULL);
+	bool Parse(const std::string& sz, const DWORD nFlag = 0, JSONERROR *pError = NULL);
 
-	// conversion, variant
-	bool ToVariant(_variant_t& v, const DWORD nFlag = 0);
-	bool FromVariant(const _variant_t& v);
 #pragma endregion
 
 protected:
@@ -293,8 +296,8 @@ protected:
 	const wchar_t* EscapeChar(const wchar_t c, const wchar_t cQuote);
 	wchar_t UnescapeChar(const wstring& sz);
 	int UnescapeString(wstring& sz);
-	const wchar_t* ConvertAW(wstring& dest, const char* src, const UINT srccp = CP_UTF8, const bool bRemoveBom = true);
-	const char* ConvertWA(string& dest, const wchar_t* src, const UINT destcp = CP_UTF8, const bool bRemoveBom = true);
+	const wchar_t* ConvertAW(wstring& dest, const char* src, const UINT srccp = CP_ACP, const bool bRemoveBom = true);
+	const char* ConvertWA(std::string& dest, const wchar_t* src, const UINT destcp = CP_ACP, const bool bRemoveBom = true);
 	int JsonFromString(JSONVALUE* dst, const wstring& sz, const DWORD nFlag);
 	
 	bool HasFlag(const DWORD nFlag, const DWORD nSrc);
@@ -319,3 +322,4 @@ protected:
 	bool SetCurrentSubScope(const JSONSCOPE nSubScope);
 	DWORD RevertScope(const DWORD nLevel);
 };
+int ParseJsonFile(LPCTSTR path,JSONVALUE& jVal);

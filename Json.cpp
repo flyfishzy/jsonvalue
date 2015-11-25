@@ -1,16 +1,17 @@
-//---------------------------------------------------------------------
-// Copyright (c) Ecava Sdn Bhd. All rights reserved.  
-//---------------------------------------------------------------------
+/*
+ * IntegraXor Web SCADA - JsonValue
+ * http://www.integraxor.com/
+ * author: KHW
+ * (c)2010~2011 ecava
+ * Dual licensed under the MIT or GPL Version 2 licenses.
+ */
 
 #include "StdAfx.h"
 #include "Json.h"
 #include <float.h>
-#include <atlbase.h>
-#include <atlcomcli.h>	// CComDispatchDriver, CComPtr
-#include <dispex.h>
-//#include "igmem.h"
 
 #pragma warning(disable:4389)
+
 
 // constructor
 JSONVALUE::JSONVALUE() 
@@ -101,7 +102,7 @@ JSONVALUE::JSONVALUE(const wstring& src)
 	*val.strVal = src;
 }
 
-JSONVALUE::JSONVALUE(const string& src)
+JSONVALUE::JSONVALUE(const std::string& src)
 {
 	order.clear();
 	vt = VT_BSTR;
@@ -135,7 +136,7 @@ JSONVALUE::JSONVALUE(const DECIMAL& src)
 	order.clear();
 	vt = VT_DECIMAL;
 	jt = JT_NUMBER;
-	VarR8FromDec(&src, &val.numVal.dblVal);
+	VarR8FromDec((DECIMAL *)&src, &val.numVal.dblVal);
 }
 
 JSONVALUE::JSONVALUE(const double src)
@@ -288,7 +289,7 @@ JSONVALUE::JSONVALUE(const _variant_t& src)
 			break;
 		case VT_DECIMAL:
 			jt = JT_NUMBER;
-			VarR8FromDec(&src.decVal, &val.numVal.dblVal);
+			VarR8FromDec((DECIMAL *)&src.decVal, &val.numVal.dblVal);
 			break;
 		case VT_R4:
 			jt = JT_NUMBER;
@@ -432,7 +433,7 @@ JSONVALUE& JSONVALUE::operator =(const wstring& src)
 	return *this;
 }
 
-JSONVALUE& JSONVALUE::operator =(const string& src) 
+JSONVALUE& JSONVALUE::operator =(const std::string& src) 
 {
 	Clear();
 	vt = VT_BSTR;
@@ -469,7 +470,7 @@ JSONVALUE& JSONVALUE::operator =(const DECIMAL& src)
 	Clear();
 	vt = VT_DECIMAL;
 	jt = JT_NUMBER;
-	VarR8FromDec(&src, &val.numVal.dblVal);
+	VarR8FromDec((DECIMAL *)&src, &val.numVal.dblVal);
 	return *this;
 }
 
@@ -639,7 +640,7 @@ JSONVALUE& JSONVALUE::operator =(const _variant_t& src)
 			break;
 		case VT_DECIMAL:
 			jt = JT_NUMBER;
-			VarR8FromDec(&src.decVal, &val.numVal.dblVal);
+			VarR8FromDec((DECIMAL *)&src.decVal, &val.numVal.dblVal);
 			break;
 		case VT_R4:
 			jt = JT_NUMBER;
@@ -718,7 +719,7 @@ JSONVALUE& JSONVALUE::operator [](const wchar_t *src)
 	return operator [](w);
 }
 
-JSONVALUE& JSONVALUE::operator [](const string &src)
+JSONVALUE& JSONVALUE::operator [](const std::string &src)
 {
 	wstring w;
 	ConvertAW(w, src.c_str());
@@ -743,6 +744,17 @@ void JSONVALUE::Push(const JSONVALUE &src)
 	val.arVal->push_back(src);
 }
 
+bool JSONVALUE::SetAt(const size_t pos,const JSONVALUE &src)
+{
+	// if array
+	if ((JT_ARRAY == jt) && val.arVal && (0 <= pos) && (pos < val.arVal->size())) {
+		(*val.arVal)[pos]=src;
+		return true;
+	}
+	// other
+	return false;
+	//// return false if not array or position invalid
+}
 size_t JSONVALUE::Size()
 {
 	switch (jt) {
@@ -755,11 +767,107 @@ size_t JSONVALUE::Size()
 	}
 }
 
-bool JSONVALUE::IsUndefined()
+bool JSONVALUE::isNull()
 {
 	return (JT_UNDEFINED == jt);
 }
-
+bool JSONVALUE::isMember(const wchar_t* pos)
+{
+	JSONVALUE j(JT_UNDEFINED);
+	return At(pos,j);
+}
+LPCTSTR JSONVALUE::asCString()
+{
+	if(jt==JT_STRING)
+		return val.strVal->c_str();
+	else
+		return L"";
+}
+wstring JSONVALUE::asString()
+{
+	if(jt==JT_STRING)
+		return *val.strVal;
+	else
+		return L"";
+}
+int JSONVALUE::asInt()
+{
+	switch ( jt )
+   {
+   case JT_UNDEFINED:
+      return 0;
+   case JT_NUMBER:
+      return val.numVal.llVal;
+   case JT_BOOL:
+	   return val.boolVal ? 1 : 0;
+	}
+	return 0;
+}
+double JSONVALUE::asDouble()
+{
+	switch ( jt )
+	{
+	case JT_UNDEFINED:
+		return 0;
+	case JT_NUMBER:
+		{
+			if(vt==VT_R4||vt==VT_R8)
+				return val.numVal.dblVal;
+			else
+				return val.numVal.llVal;
+		}
+	case JT_BOOL:
+		return val.boolVal ? 1 : 0;
+	}
+	return 0;
+}
+int ParseJsonFile(LPCTSTR fileName,JSONVALUE& jVal)
+{
+	FILE* fin=NULL;
+	//¶ÁÈ¡²¢ÅÐ¶ÏBOM
+	_wfopen_s(&fin,fileName,_T("rb"));
+	if (fin==NULL)
+		return -1;
+	BYTE* buf[2];
+	BYTE utf16_le[]={0xFF,0xFE};
+	BYTE utf16_be[]={0xFE,0xFF};
+	size_t nRead=fread((void*)buf,sizeof(BYTE),2,fin);
+	fseek(fin,0,SEEK_END);
+	int nFileLen=ftell(fin);
+	fclose(fin);
+	int iUnicode=2;
+	if(memcmp(buf,&utf16_be,2)==0||memcmp(buf,&utf16_le,2)==0)
+	{//unicode
+		iUnicode=2;
+	}
+	else
+		iUnicode=0;
+	_wfopen_s(&fin,fileName,_T("r,ccs=UNICODE"));
+	fseek(fin,iUnicode,SEEK_SET);
+	char* szBuf=new char[nFileLen+1];
+	memset(szBuf,0,nFileLen+1);
+	fread(szBuf, sizeof(char),nFileLen, fin);
+	fclose(fin);
+	JSONERROR err;
+	if(iUnicode)
+	{
+		if (!jVal.Parse((wchar_t*)szBuf,JSON_FLAG_LOOSE ,&err))
+		{
+			delete szBuf;
+			return -2;
+		}
+	}
+	else
+	{
+		if (!jVal.Parse(szBuf,JSON_FLAG_LOOSE ,&err))
+		{
+			delete szBuf;
+			return -2;
+		}
+	}
+	delete szBuf;
+	return 0;
+}
 JSONVALUE& JSONVALUE::At(const size_t pos)
 {
 	static JSONVALUE j(JT_UNDEFINED);
@@ -833,100 +941,14 @@ bool JSONVALUE::At(const char* pos, JSONVALUE& val)
 }
 
 // conversion
-const char* JSONVALUE::ToString(string& sz, const DWORD nFlag, const JSONFORMAT* pFormat)
+const char* JSONVALUE::ToString(std::string& sz, const DWORD nFlag, const JSONFORMAT* pFormat)
 {
 	wstring szw;
 	ToString(szw, nFlag, pFormat);
 	return ConvertWA(sz, szw.c_str());
 }
 
-bool JSONVALUE::ToVariant(_variant_t& v, const DWORD nFlag)
-{
-	UNREFERENCED_PARAMETER(nFlag);
-
-	bool bOk = true;
-	switch (vt) {
-		case VT_NULL:		v = _variant_t();						break;
-		case VT_I1:			v = (char)val.numVal.llVal;				break;
-		case VT_I2:			v = (short)val.numVal.llVal;			break;
-		case VT_I4:			v = (long)val.numVal.llVal;				break;
-		case VT_I8:			v = val.numVal.llVal;					break;
-		case VT_UI1:		v = (unsigned char)val.numVal.ullVal;	break;
-		case VT_UI2:		v = (unsigned short)val.numVal.ullVal;	break;
-		case VT_UI4:		v = (unsigned long)val.numVal.ullVal;	break;
-		case VT_UI8:		v = val.numVal.ullVal;					break;
-		case VT_DECIMAL:
-			{
-				DECIMAL decVal = {0};
-				VarDecFromR8(val.numVal.dblVal, &decVal);
-				v = decVal;
-			}
-			break;
-		case VT_R4:			v = (float)val.numVal.dblVal;			break;
-		case VT_R8:			v = val.numVal.dblVal;					break;
-		case VT_BSTR:		v = val.strVal->c_str();				break;
-		case VT_DATE:		v = (DATE)val.numVal.dblVal, VT_DATE;	break;
-		case VT_BOOL:		v = val.boolVal;						break;
-		default:			bOk = false;							break;
-
-			// TODO: to handle conversion to IDispatch
-	}
-	return bOk;
-}
-
-bool JSONVALUE::FromVariant(const _variant_t& v)
-{
-	if (VT_DISPATCH != v.vt)
-		return false;
-	JsonFromIDispatch(v, *this);
-	return true;
-}
-
-void JSONVALUE::JsonFromIDispatch(const _variant_t& v, JSONVALUE& j)
-{
-	if (VT_DISPATCH != v.vt)
-		return;
-
-	try {
-		CComPtr<IDispatchEx> pDispEx;
-		HRESULT hr = v.pdispVal->QueryInterface(IID_IDispatchEx, (void**)&pDispEx);
-		if (SUCCEEDED(hr)) {
-			DISPID dispid = 0;
-			hr = pDispEx->GetNextDispID(fdexEnumDefault, DISPID_STARTENUM, &dispid);
-			while (hr == NOERROR) {
-				// get name
-				BSTR bstrName;
-				hr = pDispEx->GetMemberName(dispid, &bstrName);
-				wstring s = (LPCWSTR)_bstr_t(bstrName);
-				SysFreeString(bstrName);
-
-				// get value
-				DISPPARAMS dispparamsNoArgs = { NULL, NULL, 0, 0 };
-				_variant_t value;
-				hr = pDispEx->Invoke(dispid, IID_NULL, LOCALE_USER_DEFAULT, DISPATCH_PROPERTYGET, &dispparamsNoArgs, &value, NULL, NULL);
-				switch (value.vt) {
-					case VT_DISPATCH:
-						{
-							JSONVALUE j2;
-							JsonFromIDispatch(value, j2);
-							j[s.c_str()] = j2;
-						}
-						break;
-					default:
-						// TODO: to handle JSON array
-						j[s.c_str()] = value;
-						break;
-				}
-
-				// next
-				hr = pDispEx->GetNextDispID(fdexEnumDefault, dispid, &dispid);
-			}
-		}
-	} catch (...) {
-	}
-}
-
-bool JSONVALUE::Parse(const string& sz, const DWORD nFlag, JSONERROR *pError)
+bool JSONVALUE::Parse(const std::string& sz, const DWORD nFlag, JSONERROR *pError)
 {
 	wstring szw;
 	if (NULL == ConvertAW(szw, sz.c_str()))
@@ -1210,7 +1232,7 @@ void JSONVALUE::ObjectToString(wstring& sz, const wstring& szKey, const JSONVALU
 	bool& bFirstItem, const bool bPrettyPrint, const wstring& szIndent, const wstring& cIndent)
 {
 	// if value is not undefined
-	if (false == ((JSONVALUE)jVal).IsUndefined()) {
+	if (false == ((JSONVALUE)jVal).isNull()) {
 		wstring szString;
 
 		if (false == bFirstItem) {
@@ -2007,7 +2029,7 @@ const wchar_t* JSONVALUE::EscapeChar(const wchar_t c, const wchar_t cQuote)
 wchar_t JSONVALUE::UnescapeChar(const wstring& sz)
 {
 	if (0 == sz.compare(L"\\\""))		return wchar_t('"');
-	else if (0 == sz.compare(L"\\"))	return wchar_t('\\');
+	else if (0 == sz.compare(L"\\\\"))	return wchar_t('\\');
 	else if (0 == sz.compare(L"/"))		return wchar_t('/');
 	else if (0 == sz.compare(L"\\b"))	return wchar_t('\b');
 	else if (0 == sz.compare(L"\\f"))	return wchar_t('\f');
@@ -2164,7 +2186,7 @@ const wchar_t* JSONVALUE::ConvertAW(wstring& dest, const char* src, const UINT s
 	return bOk ? dest.c_str() : NULL;
 }
 
-const char* JSONVALUE::ConvertWA(string& dest, const wchar_t* src, const UINT destcp, const bool bRemoveBom)
+const char* JSONVALUE::ConvertWA(std::string& dest, const wchar_t* src, const UINT destcp, const bool bRemoveBom)
 {
 	dest = "";
 	bool bOk = false;
