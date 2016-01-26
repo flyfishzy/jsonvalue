@@ -776,6 +776,27 @@ bool JSONVALUE::isMember(const wchar_t* pos)
 	JSONVALUE j(JT_UNDEFINED);
 	return At(pos,j);
 }
+void JSONVALUE::Unescape(const wchar_t *src,CString& dest)
+{
+	size_t nSize = wcslen(src);
+	wchar_t* lpszBuf = new wchar_t[nSize + 1];
+	size_t i = 0;
+	while (*src && i < nSize)
+	{
+		if ('\\' == src[0] && 'u' == src[1])
+		{
+			wchar_t cSave[4];
+			wcsncpy(cSave,src + 2,4);
+			lpszBuf[i++] = wcstoul(cSave, NULL, 16);
+			src += 6;
+		}
+		else
+			lpszBuf[i++] = *src++;
+	}
+	lpszBuf[i] = 0;
+	dest.Format(_T("%s"),lpszBuf);
+	delete [] lpszBuf;
+}
 LPCTSTR JSONVALUE::asCString()
 {
 	if(jt==JT_STRING)
@@ -833,7 +854,7 @@ int ParseJsonFile(LPCTSTR fileName,JSONVALUE& jVal)
 	BYTE utf16_be[]={0xFE,0xFF};
 	size_t nRead=fread((void*)buf,sizeof(BYTE),2,fin);
 	fseek(fin,0,SEEK_END);
-	int nFileLen=ftell(fin);
+	int nFileLen=ftell(fin)+2;
 	fclose(fin);
 	int iUnicode=2;
 	if(memcmp(buf,&utf16_be,2)==0||memcmp(buf,&utf16_le,2)==0)
@@ -844,14 +865,16 @@ int ParseJsonFile(LPCTSTR fileName,JSONVALUE& jVal)
 		iUnicode=0;
 	_wfopen_s(&fin,fileName,_T("r,ccs=UNICODE"));
 	fseek(fin,iUnicode,SEEK_SET);
-	char* szBuf=new char[nFileLen+1];
-	memset(szBuf,0,nFileLen+1);
-	fread(szBuf, sizeof(char),nFileLen, fin);
+	char* szBuf=new char[nFileLen];
+	memset(szBuf,0,nFileLen);
+	nRead=fread(szBuf, sizeof(char),nFileLen, fin);
+	szBuf[nRead]=0;
 	fclose(fin);
 	JSONERROR err;
 	if(iUnicode)
 	{
-		if (!jVal.Parse((wchar_t*)szBuf,JSON_FLAG_LOOSE ,&err))
+		wchar_t* p=(wchar_t*)szBuf;
+		if (!jVal.Parse(p,JSON_FLAG_LOOSE ,&err))
 		{
 			delete szBuf;
 			return -2;
@@ -867,26 +890,6 @@ int ParseJsonFile(LPCTSTR fileName,JSONVALUE& jVal)
 	}
 	delete szBuf;
 	return 0;
-}
-JSONVALUE& JSONVALUE::At(const size_t pos)
-{
-	static JSONVALUE j(JT_UNDEFINED);
-	At(pos, j);
-	return j;
-}
-
-JSONVALUE& JSONVALUE::At(const wchar_t* pos)
-{
-	static JSONVALUE j(JT_UNDEFINED);
-	At(pos, j);
-	return j;
-}
-
-JSONVALUE& JSONVALUE::At(const char* pos)
-{
-	static JSONVALUE j(JT_UNDEFINED);
-	At(pos, j);
-	return j;
 }
 
 bool JSONVALUE::At(const size_t pos, wstring& _key, JSONVALUE& _val)

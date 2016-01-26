@@ -2,6 +2,8 @@
 
 This is a clone of [jsonvalue](https://code.google.com/p/jsonvalue/)  from google code，
 and I made some changes.
+NOTE:
+This lib is NOT thread safe!
 
 ## Introduction
 

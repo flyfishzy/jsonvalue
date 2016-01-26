@@ -11,12 +11,10 @@
 #include <map>
 #include <vector>
 #include <comdef.h>
-
+using namespace std;
 // forward declaration of json value
 class JSONVALUE;
 
-typedef std::wstring wstring, *pwstring;
-typedef std::string  *pstring;
 
 // json object is a collection of name-value pair
 typedef std::map<wstring, JSONVALUE> JSONOBJECT, *LPJSONOBJECT;
@@ -264,13 +262,11 @@ public:
 	bool isNull();
 	bool isMember(const wchar_t* pos);
 	LPCTSTR asCString();
+	static void Unescape(const wchar_t *src,CString& dest);
 	wstring asString();
 	int asInt();
 	double asDouble();
 	bool SetAt(const size_t pos,const JSONVALUE &src);
-	JSONVALUE& At(const size_t pos);
-	JSONVALUE& At(const wchar_t* pos);
-	JSONVALUE& At(const char* pos);
 	bool At(const size_t pos, JSONVALUE& val);
 	bool At(const wchar_t* pos, JSONVALUE& val);
 	bool At(const char* pos, JSONVALUE& val);
