@@ -703,9 +703,10 @@ JSONVALUE& JSONVALUE::operator [](const wstring &src)
 		SetObject(this);
 	}
 
-	order.push_back(src);
+	
 	JSONOBJECT::iterator it = val.objVal->find(src);
 	if (val.objVal->end() == it) {
+		order.push_back(src);
 		(*val.objVal)[src] = JSONVALUE(JT_UNDEFINED);
 		return (*val.objVal)[src];
 	} else {
@@ -1288,18 +1289,18 @@ bool JSONVALUE::Parse(const wstring& sz, const DWORD nFlag, JSONERROR *pError)
 		// get current character
 		pos = it - sz.begin();
 		c = *it;
-		if (iswcntrl(c)) {
-			if (bAllowWhitespaceControlChar && iswspace(c)) {
-				// continue checking if allow white-space control character
-				// and this character is white-space character
-				bError = false;
-			} else {
-				bError = true;
-					SetError(pError, sz, pos, bAllowWhitespaceControlChar ?
-						L"Invalid control character." : L"Invalid whitespace character.");
-				break;
-			}
-		}
+// 		if (iswcntrl(c)) {
+// 			if (bAllowWhitespaceControlChar && iswspace(c)) {
+// 				// continue checking if allow white-space control character
+// 				// and this character is white-space character
+// 				bError = false;
+// 			} else {
+// 				bError = true;
+// 					SetError(pError, sz, pos, bAllowWhitespaceControlChar ?
+// 						L"Invalid control character." : L"Invalid whitespace character.");
+// 				break;
+// 			}
+// 		}
 
 		// get current scope
 		JSONSCOPES cur;
